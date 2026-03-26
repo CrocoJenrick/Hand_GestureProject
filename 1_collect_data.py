@@ -2,9 +2,14 @@ import cv2
 import mediapipe as mp
 import pandas as pd
 
-mp_hands = mp.solutions.hands
+try:
+    from mediapipe.python.solutions import hands as mp_hands
+    from mediapipe.python.solutions import drawing_utils as mp_draw
+except ImportError:
+    import mediapipe.solutions.hands as mp_hands
+    import mediapipe.solutions.drawing_utils as mp_draw
+
 hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7)
-mp_draw = mp.solutions.drawing_utils
 
 data = []
 cap = cv2.VideoCapture(0)
@@ -13,6 +18,9 @@ print("Press 'l' for Like, 'p' for Peace, and 'f' for Fuck U. Press 'q' to quit 
 
 while True:
     ret, frame = cap.read()
+    if not ret:
+        print("Failed to grab frame.")
+        break
     frame = cv2.flip(frame, 1)
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     result = hands.process(rgb_frame)

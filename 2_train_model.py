@@ -1,49 +1,26 @@
-import cv2
-import mediapipe as mp
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
 import pickle
+import os
 
-# Load your newly trained model
-with open('gesture_model.pkl', 'rb') as f:
-    model = pickle.load(f)
+if not os.path.exists("gesture_dataset.csv"):
+    print("Error: gesture_dataset.csv not found.")
+    exit()
 
-mp_hands = mp.solutions.hands
-# I left this at 2 so it can read both your hands at once if you want!
-hands = mp_hands.Hands(max_num_hands=2, min_detection_confidence=0.7)
-mp_draw = mp.solutions.drawing_utils
+print("Loading data...")
+df = pd.read_csv("gesture_dataset.csv")
+if df.empty:
+    print("Error: Dataset is empty.")
+    exit()
 
-cap = cv2.VideoCapture(0)
+X = df.drop("label", axis=1)
+y = df["label"]
 
-while True:
-    ret, frame = cap.read()
-    frame = cv2.flip(frame, 1)
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    result = hands.process(rgb_frame)
+print(f"Training on {len(df)} samples...")
+model = RandomForestClassifier(n_estimators=100)
+model.fit(X, y)
 
-    if result.multi_hand_landmarks:
-        for hand_landmarks in result.multi_hand_landmarks:
-            mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-            
-            # Extract coordinates
-            row = []
-            for landmark in hand_landmarks.landmark:
-                row.extend([landmark.x, landmark.y, landmark.z])
-            
-            # Predict gesture
-            prediction = model.predict([row])[0]
-            display_text = prediction.replace('_', ' ').upper()
+with open("gesture_model.pkl", "wb") as f:
+    pickle.dump(model, f)
 
-            # Find where to put the text (just above the hand)
-            h, w, c = frame.shape
-            x_min = int(min([lm.x for lm in hand_landmarks.landmark]) * w)
-            y_min = int(min([lm.y for lm in hand_landmarks.landmark]) * h)
-            
-            # Draw the text on the screen
-            cv2.putText(frame, display_text, (x_min, y_min - 20), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 3)
-
-    cv2.imshow("Webcam Gesture Controller", frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-cap.release()
-cv2.destroyAllWindows()
+print("Success: Model saved as gesture_model.pkl!")
